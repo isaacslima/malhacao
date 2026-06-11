@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Treino Activo</title>
+    <!-- Pico.css v2 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <!-- Custom Style Sheet -->
+    <link rel="stylesheet" href="style.css">
+    <!-- SQL.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+</head>
+
+<body>
+
+    <!-- Top Navigation Bar for Title & Theme Toggle -->
+    <nav class="container" style="margin-top: 1rem; margin-bottom: 1.5rem;">
+        <ul>
+            <li><strong>🏋️‍♂️ Gerenciador de Treino</strong></li>
+        </ul>
+        <ul>
+            <li>
+                <button id="btnToggleTheme" class="outline contrast">☀️ Modo Claro</button>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Main Container -->
+    <main class="container">
+        
+        <article id="setupSection" style="margin-bottom: 2rem;">
+            <header style="margin-bottom: 1rem; font-weight: bold; font-size: 1.1rem; padding: 0.75rem var(--pico-spacing);">
+                ⚡ Configuração do Banco de Dados SQLite
+            </header>
+            <p style="font-size: 14px; color: var(--pico-muted-color); margin-top: -10px;">
+                Abra um arquivo existente para carregar seu progresso ou crie um novo arquivo.
+            </p>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <button id="btnOpenDB" disabled style="margin: 0;">Abrir Arquivo SQLite Existente (.db)</button>
+                <button id="btnCreateDB" disabled class="secondary" style="margin: 0;">Criar Novo Arquivo SQLite (.db)</button>
+                <span id="dbStatus" style="font-size: 14px; font-weight: bold; color: var(--pico-del-color); margin-left: 10px;">Desconectado</span>
+            </div>
+        </article>
+
+        <div id="mainApp" class="hidden">
+            <article class="timer-card" style="margin-bottom: 2rem;">
+                <header style="margin-bottom: 1rem; font-weight: bold; font-size: 1.1rem; padding: 0.75rem var(--pico-spacing);">
+                    ⏱️ Cronômetro da Série
+                </header>
+                <div class="grid" style="align-items: center;">
+                    <button id="btnOpenTimer" style="font-size: 16px; margin: 0;">⏱️ Abrir Cronômetro (Série Ativa)</button>
+                    <div style="text-align: center; font-size: 15px;">
+                        Tempo registrado: <strong id="mainTimerValue" style="color: var(--pico-ins-color); font-size: 20px;">00:00</strong>
+                    </div>
+                </div>
+            </article>
+
+            <article style="margin-bottom: 2rem;">
+                <header style="margin-bottom: 1rem; font-weight: bold; font-size: 1.1rem; padding: 0.75rem var(--pico-spacing);">
+                    💪 Registrar Série
+                </header>
+                <p style="margin-bottom: 1.5rem;"><strong>Treino de Hoje sugerido:</strong> <span id="currentDayWorkout" style="color: var(--pico-primary); font-weight: bold;">Verificando dia...</span></p>
+
+                <div>
+                    <label style="margin-bottom: 8px; font-weight: bold;">Selecione o Exercício</label>
+                    <div id="exerciseOptionsContainer" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+                        <!-- Será preenchido via JS -->
+                    </div>
+                </div>
+                
+                <div id="customExerciseContainer" class="hidden" style="margin-top: 10px; margin-bottom: 10px;">
+                    <label for="inputExerciseCustom" style="font-weight: bold;">Nome do Exercício Personalizado</label>
+                    <input type="text" id="inputExerciseCustom" placeholder="Ex: Rosca Concentrada, Crossover">
+                </div>
+
+                <div class="grid" style="margin-top: 1.5rem;">
+                    <div>
+                        <label for="inputWeight" style="font-weight: bold;">Carga / Peso (kg)</label>
+                        <input type="number" id="inputWeight" placeholder="0" min="0">
+                    </div>
+                    <div>
+                        <label for="inputReps" style="font-weight: bold;">Repetições</label>
+                        <input type="number" id="inputReps" placeholder="0" min="0">
+                    </div>
+                    <div>
+                        <label for="inputSets" style="font-weight: bold;">Série Nº</label>
+                        <input type="number" id="inputSets" placeholder="1" min="1" value="1">
+                    </div>
+                </div>
+
+                <div class="grid" style="margin-top: 1.5rem;">
+                    <button id="btnSaveSet" class="btn-success" style="margin: 0;">Salvar Série no SQLite</button>
+                    <button id="btnResetFields" class="secondary" style="margin: 0;">Limpar Campos</button>
+                </div>
+            </article>
+
+            <article>
+                <header style="margin-bottom: 1rem; font-weight: bold; font-size: 1.1rem; padding: 0.75rem var(--pico-spacing);">
+                    📜 Histórico de Hoje
+                </header>
+                <div style="overflow-x: auto;">
+                    <table class="striped" id="logTable">
+                        <thead>
+                            <tr>
+                                <th>Hora</th>
+                                <th>Exercício</th>
+                                <th>Série</th>
+                                <th>Carga</th>
+                                <th>Reps</th>
+                                <th>Tempo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <!-- Tela Completa do Cronômetro (Overlay) -->
+    <div id="timerOverlay" class="timer-overlay hidden">
+        <div class="timer-overlay-title">Cronômetro da Série</div>
+        <div class="timer-overlay-display" id="overlayTimerDisplay">00:00</div>
+        <div class="timer-overlay-buttons">
+            <button id="btnOverlayStart" class="btn-success">Iniciar / Continuar</button>
+            <button id="btnOverlayPause" style="background-color: #eab308; color: white;">Pausar</button>
+            <button id="btnOverlayFinish" class="btn-danger">Terminar</button>
+        </div>
+    </div>
+
+    <!-- Application Modules loaded sequentially to support direct file:// protocol usage -->
+    <script src="routine.js"></script>
+    <script src="timer.js"></script>
+    <script src="db.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>

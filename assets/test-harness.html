@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Testes - Gerenciador de Treino</title>
+    <!-- Pico.css v2 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .test-card {
+            border-left: 5px solid var(--pico-muted-color);
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            background: var(--pico-card-background-color);
+        }
+
+        .test-card.pass {
+            border-left-color: var(--pico-ins-color);
+        }
+
+        .test-card.fail {
+            border-left-color: var(--pico-del-color);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .badge.pass {
+            background-color: var(--pico-ins-color);
+            color: white;
+        }
+
+        .badge.fail {
+            background-color: var(--pico-del-color);
+            color: white;
+        }
+
+        .badge.pending {
+            background-color: var(--pico-muted-color);
+            color: white;
+        }
+
+        /* Encolher um pouco o sandbox para caber ao lado */
+        #sandboxContainer {
+            border: 2px dashed var(--pico-border-color);
+            padding: 15px;
+            border-radius: 8px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="container" style="margin-top: 1rem; margin-bottom: 1.5rem;">
+        <ul>
+            <li><strong>🧪 Painel de Testes Integrados</strong></li>
+        </ul>
+        <ul>
+            <li>
+                <button id="btnRunTests" class="btn-success">Executar Testes</button>
+            </li>
+        </ul>
+    </nav>
+
+    <main class="container">
+        <div class="grid">
+            <!-- Coluna de Resultados dos Testes -->
+            <div>
+                <h3>Resultados dos Testes</h3>
+                <div id="testSummary" style="margin-bottom: 1.5rem; font-weight: bold;">
+                    Status: <span class="badge pending">Aguardando Execução</span>
+                </div>
+                <div id="testResultsList">
+                    <!-- Preenchido via script de teste -->
+                </div>
+            </div>
+
+            <!-- Coluna do Sandbox visual da aplicação -->
+            <div>
+                <h3>Visual App Sandbox</h3>
+                <div id="sandboxContainer">
+                    <!-- Interface Stática do index.html para interação do runner -->
+                    <article id="setupSection" style="margin-bottom: 1.5rem;">
+                        <header style="padding: 0.5rem 1rem; font-size: 0.95rem; font-weight: bold;">
+                            ⚡ Configuração do Banco de Dados SQLite
+                        </header>
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <button id="btnOpenDB" disabled style="margin: 0; padding: 6px 12px; font-size: 13px;">Abrir Arquivo</button>
+                            <button id="btnCreateDB" disabled class="secondary" style="margin: 0; padding: 6px 12px; font-size: 13px;">Criar Novo</button>
+                            <span id="dbStatus" style="font-size: 12px; font-weight: bold; color: var(--pico-del-color);">Desconectado</span>
+                        </div>
+                    </article>
+
+                    <div id="mainApp" class="hidden">
+                        <article style="margin-bottom: 1.5rem;">
+                            <header style="padding: 0.5rem 1rem; font-size: 0.95rem; font-weight: bold;">
+                                ⏱️ Cronômetro da Série
+                            </header>
+                            <div class="grid" style="align-items: center;">
+                                <button id="btnOpenTimer" style="font-size: 13px; margin: 0; padding: 6px 12px;">⏱️ Abrir Cronômetro</button>
+                                <div style="text-align: center; font-size: 14px;">
+                                    Tempo: <strong id="mainTimerValue" style="color: var(--pico-ins-color); font-size: 16px;">00:00</strong>
+                                </div>
+                            </div>
+                        </article>
+
+                        <article style="margin-bottom: 1.5rem;">
+                            <header style="padding: 0.5rem 1rem; font-size: 0.95rem; font-weight: bold;">
+                                💪 Registrar Série
+                            </header>
+                            <p style="font-size: 13px; margin-bottom: 0.5rem;"><strong>Sugerido:</strong> <span id="currentDayWorkout" style="color: var(--pico-primary);">Carregando...</span></p>
+
+                            <div style="margin-bottom: 1rem;">
+                                <label style="font-size: 13px; font-weight: bold; margin-bottom: 4px;">Exercício</label>
+                                <div id="exerciseOptionsContainer" style="display: flex; flex-direction: column; gap: 4px; padding: 8px;">
+                                    <!-- JS -->
+                                </div>
+                            </div>
+
+                            <div id="customExerciseContainer" class="hidden" style="margin-bottom: 0.5rem;">
+                                <input type="text" id="inputExerciseCustom" placeholder="Nome do exercício" style="padding: 4px 8px; font-size: 13px;">
+                            </div>
+
+                            <div class="grid" style="margin-top: 0.5rem;">
+                                <div>
+                                    <label style="font-size: 12px;">Carga (kg)</label>
+                                    <input type="number" id="inputWeight" placeholder="0" style="padding: 4px 8px; font-size: 13px;">
+                                </div>
+                                <div>
+                                    <label style="font-size: 12px;">Reps</label>
+                                    <input type="number" id="inputReps" placeholder="0" style="padding: 4px 8px; font-size: 13px;">
+                                </div>
+                                <div>
+                                    <label style="font-size: 12px;">Série</label>
+                                    <input type="number" id="inputSets" value="1" style="padding: 4px 8px; font-size: 13px;">
+                                </div>
+                            </div>
+
+                            <div class="grid" style="margin-top: 0.5rem;">
+                                <button id="btnSaveSet" class="btn-success" style="margin: 0; padding: 6px 12px; font-size: 13px;">Salvar</button>
+                                <button id="btnResetFields" class="secondary" style="margin: 0; padding: 6px 12px; font-size: 13px;">Limpar</button>
+                            </div>
+                        </article>
+
+                        <article>
+                            <header style="padding: 0.5rem 1rem; font-size: 0.95rem; font-weight: bold;">
+                                📜 Histórico
+                            </header>
+                            <div style="overflow-x: auto;">
+                                <table class="striped" style="font-size: 12px;">
+                                    <thead>
+                                        <tr>
+                                            <th>Hora</th>
+                                            <th>Exercício</th>
+                                            <th>Série</th>
+                                            <th>Carga</th>
+                                            <th>Reps</th>
+                                            <th>Tempo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="logTableBody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Overlay do Cronômetro -->
+    <div id="timerOverlay" class="timer-overlay hidden">
+        <div class="timer-overlay-title" style="font-size: 1.1rem; margin-bottom: 5px;">Cronômetro da Série</div>
+        <div class="timer-overlay-display" id="overlayTimerDisplay" style="font-size: 4rem; margin-bottom: 20px;">00:00</div>
+        <div class="timer-overlay-buttons">
+            <button id="btnOverlayStart" class="btn-success" style="padding: 8px 16px; font-size: 14px;">Iniciar / Continuar</button>
+            <button id="btnOverlayPause" style="background-color: #eab308; color: white; padding: 8px 16px; font-size: 14px;">Pausar</button>
+            <button id="btnOverlayFinish" class="btn-danger" style="padding: 8px 16px; font-size: 14px;">Terminar</button>
+        </div>
+    </div>
+
+    <!-- Fornece botão de alternar tema dummy para evitar erro no script global -->
+    <div style="display:none;">
+        <button id="btnToggleTheme"></button>
+    </div>
+
+    <!-- SQL.js Wrapper -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+
+    <!-- Mocks da API File System Access do Navegador antes de carregar o código real -->
+    <script>
+        class MockWritableStream {
+            constructor() {
+                this.chunks = [];
+            }
+            async write(data) {
+                this.chunks.push(data);
+            }
+            async close() {
+                window.mockFileContent = this.chunks[0];
+            }
+        }
+
+        window.mockFileContent = new Uint8Array([]);
+        window.mockFileHandle = {
+            queryPermission: async () => 'granted',
+            requestPermission: async () => 'granted',
+            getFile: async () => ({
+                arrayBuffer: async () => window.mockFileContent.buffer.slice(0)
+            }),
+            createWritable: async () => new MockWritableStream()
+        };
+
+        window.showOpenFilePicker = async () => [window.mockFileHandle];
+        window.showSaveFilePicker = async () => window.mockFileHandle;
+    </script>
+
+    <!-- Scripts do App original -->
+    <script src="routine.js"></script>
+    <script src="timer.js"></script>
+    <script src="db.js"></script>
+    <script src="app.js"></script>
+
+    <!-- Runner de Testes -->
+    <script>
+        const testResultsList = document.getElementById('testResultsList');
+        const testSummary = document.getElementById('testSummary');
+        const btnRunTests = document.getElementById('btnRunTests');
+
+        let testCases = [];
+
+        function registerTest(name, testFn) {
+            testCases.push({ name, testFn });
+        }
+
+        function updateTestResultUI(name, status, errorMsg = '') {
+            const card = document.createElement('div');
+            card.className = `test-card ${status}`;
+            card.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <strong>${name}</strong>
+                    <span class="badge ${status}">${status === 'pass' ? 'SUCESSO' : 'FALHA'}</span>
+                </div>
+                ${errorMsg ? `<div style="font-size: 12px; margin-top:5px; color: var(--pico-del-color); font-family: monospace;">${errorMsg}</div>` : ''}
+            `;
+            testResultsList.appendChild(card);
+        }
+
+        async function executeAllTests() {
+            testResultsList.innerHTML = '';
+            testSummary.innerHTML = 'Status: <span class="badge pending">Executando...</span>';
+
+            let passed = 0;
+            let failed = 0;
+
+            for (const t of testCases) {
+                try {
+                    await t.testFn();
+                    updateTestResultUI(t.name, 'pass');
+                    passed++;
+                } catch (err) {
+                    console.error(err);
+                    updateTestResultUI(t.name, 'fail', err.message);
+                    failed++;
+                }
+            }
+
+            if (failed === 0) {
+                testSummary.innerHTML = `Status: <span class="badge pass">${passed}/${passed} Passaram</span>`;
+            } else {
+                testSummary.innerHTML = `Status: <span class="badge fail">${failed} Falharam, ${passed} Passaram</span>`;
+            }
+        }
+
+        // --- DEFINIÇÕES DOS CASOS DE TESTE ---
+
+        // Teste 1: SQL.js carregado e botões habilitados
+        registerTest("Carregamento de SQL.js e Inicialização", async () => {
+            if (typeof initSqlJs === 'undefined') {
+                throw new Error("Biblioteca SQL.js não encontrada.");
+            }
+            if (btnOpenDB.disabled || btnCreateDB.disabled) {
+                throw new Error("Os botões de banco de dados não foram habilitados pelo script.");
+            }
+        });
+
+        // Teste 2: Conexão e criação de arquivo SQLite em memória (Mocked)
+        registerTest("Criação de Banco de Dados SQLite Mockado", async () => {
+            // Clica no botão criar banco (simulado)
+            btnCreateDB.click();
+
+            // Esperamos um curto delay para processamento assíncrono do arquivo
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            const dbStatus = document.getElementById('dbStatus');
+            if (!dbStatus.innerText.includes("Conectado")) {
+                throw new Error(`Conexão falhou. Status atual: ${dbStatus.innerText}`);
+            }
+
+            const mainApp = document.getElementById('mainApp');
+            if (mainApp.classList.contains('hidden')) {
+                throw new Error("Aplicativo principal não ficou visível após a conexão.");
+            }
+        });
+
+        // Teste 3: Carregamento do treino do dia
+        registerTest("Listagem dos exercícios do treino do dia", async () => {
+            const currentDayWorkout = document.getElementById('currentDayWorkout');
+            const exerciseCheckboxes = document.querySelectorAll('.exercise-checkbox');
+
+            if (!currentDayWorkout.innerText || currentDayWorkout.innerText.includes("Carregando")) {
+                throw new Error("O treino do dia não foi exibido.");
+            }
+
+            if (exerciseCheckboxes.length === 0) {
+                throw new Error("Nenhum exercício foi listado como checkbox.");
+            }
+        });
+
+        // Teste 4: Ciclo do cronômetro da série
+        registerTest("Ciclo de vida do cronômetro (Iniciar, Pausar, Redefinir)", async () => {
+            const btnOpenTimer = document.getElementById('btnOpenTimer');
+            btnOpenTimer.click();
+
+            const timerOverlay = document.getElementById('timerOverlay');
+            if (timerOverlay.classList.contains('hidden')) {
+                throw new Error("Overlay do cronômetro não apareceu.");
+            }
+
+            const btnOverlayStart = document.getElementById('btnOverlayStart');
+            btnOverlayStart.click();
+
+            // Simula contagem de tempo
+            await new Promise(resolve => setTimeout(resolve, 1100));
+
+            const mainTimerValue = document.getElementById('mainTimerValue');
+            if (mainTimerValue.innerText === "00:00") {
+                throw new Error("O cronômetro não avançou o tempo.");
+            }
+
+            const btnOverlayPause = document.getElementById('btnOverlayPause');
+            btnOverlayPause.click();
+
+            if (isTimerRunning) {
+                throw new Error("O cronômetro deveria estar pausado.");
+            }
+
+            const btnOverlayFinish = document.getElementById('btnOverlayFinish');
+            btnOverlayFinish.click();
+
+            if (!timerOverlay.classList.contains('hidden')) {
+                throw new Error("Overlay do cronômetro deveria estar oculto após terminar.");
+            }
+        });
+
+        // Teste 5: Cadastro de série no SQLite
+        registerTest("Gravação e renderização da série no banco SQLite", async () => {
+            // Seleciona o primeiro checkbox de exercício
+            const firstCheckbox = document.querySelector('.exercise-checkbox');
+            if (firstCheckbox) {
+                firstCheckbox.checked = true;
+                firstCheckbox.dispatchEvent(new Event('change'));
+            }
+
+            // Insere peso e repetições
+            inputWeight.value = "45";
+            inputReps.value = "12";
+            inputSets.value = "1";
+
+            // Salva a série
+            btnSaveSet.click();
+
+            // Delay para inserção no banco e atualização da lista
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            // Verifica se a tabela tem itens
+            const logTableBody = document.getElementById('logTableBody');
+            const rows = logTableBody.querySelectorAll('tr');
+
+            if (rows.length === 0) {
+                throw new Error("A série inserida não foi listada na tabela de histórico.");
+            }
+
+            const firstRowCells = rows[0].querySelectorAll('td');
+            if (firstRowCells[3].innerText !== "45 kg" || firstRowCells[4].innerText !== "12") {
+                throw new Error(`Dados incorretos no histórico. Encontrado peso: ${firstRowCells[3].innerText}, reps: ${firstRowCells[4].innerText}`);
+            }
+        });
+
+        // Teste 6: Botão limpar campos
+        registerTest("Limpeza dos campos de entrada", async () => {
+            // Preenche valores
+            inputWeight.value = "80";
+            inputReps.value = "10";
+            inputSets.value = "3";
+
+            // Clica em limpar
+            btnResetFields.click();
+
+            if (inputWeight.value !== "" || inputReps.value !== "" || inputSets.value !== "1") {
+                throw new Error("Os inputs não foram limpos de volta aos valores padrão.");
+            }
+        });
+
+        // Executa automaticamente ao iniciar
+        btnRunTests.addEventListener('click', executeAllTests);
+        window.addEventListener('load', () => {
+            setTimeout(executeAllTests, 1000); // aguarda inicialização do SQL.js
+        });
+    </script>
+</body>
+
+</html>
