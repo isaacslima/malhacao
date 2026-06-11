@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Treino Activo</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --background: #f8fafc;
+            --surface: #ffffff;
+            --text: #1e293b;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--background);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: var(--surface);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        h1,
+        h2,
+        h3 {
+            margin-top: 0;
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button.btn-success {
+            background-color: var(--success);
+        }
+
+        button.btn-danger {
+            background-color: var(--danger);
+        }
+
+        .timer-box {
+            background: #0f172a;
+            color: #38bdf8;
+            font-family: monospace;
+            font-size: 2rem;
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .setup-section {
+            background: #f1f5f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px dashed #cbd5e1;
+        }
+
+        .exercise-card {
+            border: 1px solid #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            background: #fafafa;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .input-group div {
+            flex: 1;
+        }
+
+        label {
+            display: block;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .log-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+
+        .log-table th,
+        .log-table td {
+            border: 1px solid #e2e8f0;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .log-table th {
+            background: #f1f5f9;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .status {
+            font-weight: bold;
+            color: var(--success);
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>🏋️‍♂️ Meu Treino Diário (30 Min)</h1>
+
+        <div class="setup-section" id="setupSection">
+            <h3>Configuração do Banco de Dados SQLite</h3>
+            <p style="font-size: 13px; margin-top: -10px; color: #64748b;">Escolha um arquivo existente ou clique para
+                criar um novo na pasta de sua preferência.</p>
+            <button id="btnConnectDB">Selecionar/Criar Arquivo SQLite (.db)</button>
+            <span id="dbStatus" style="margin-left: 10px; font-size: 14px; color: var(--danger);">Desconectado</span>
+        </div>
+
+        <div id="mainApp" class="hidden">
+            <div class="timer-section">
+                <h2>⏱️ Cronômetro do Treino</h2>
+                <div class="timer-box" id="timerDisplay">00:00</div>
+                <button id="btnStartTimer" class="btn-success">Iniciar Treino</button>
+                <button id="btnPauseTimer" style="background-color: #eab308;">Pausar</button>
+                <button id="btnResetTimer" class="btn-danger">Resetar</button>
+            </div>
+
+            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #e2e8f0;">
+
+            <div class="workout-section">
+                <h2>💪 Registrar Série</h2>
+                <p><strong>Treino de Hoje sugerido:</strong> <span id="currentDayWorkout">Verificando dia...</span></p>
+
+                <div class="exercise-card">
+                    <div>
+                        <label for="inputExercise">Nome do Exercício</label>
+                        <input type="text" id="inputExercise" placeholder="Ex: Supino Reto, Levantamento Terra">
+                    </div>
+
+                    <div class="input-group">
+                        <div>
+                            <label for="inputWeight">Carga / Peso (kg)</label>
+                            <input type="number" id="inputWeight" placeholder="0" min="0">
+                        </div>
+                        <div>
+                            <label for="inputReps">Repetições</label>
+                            <input type="number" id="inputReps" placeholder="0" min="0">
+                        </div>
+                        <div>
+                            <label for="inputSets">Série Nº</label>
+                            <input type="number" id="inputSets" placeholder="1" min="1" value="1">
+                        </div>
+                    </div>
+
+                    <button id="btnSaveSet" class="btn-success" style="width: 100%; margin-top: 15px;">Salvar Série no
+                        SQLite</button>
+                </div>
+            </div>
+
+            <div class="history-section">
+                <h2>📜 Histórico de Hoje</h2>
+                <table class="log-table" id="logTable">
+                    <thead>
+                        <tr>
+                            <th>Hora</th>
+                            <th>Exercício</th>
+                            <th>Série</th>
+                            <th>Carga</th>
+                            <th>Reps</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configurações Globais
+        let db = null;
+        let fileHandle = null;
+        let SQL = null;
+
+        // Timer Variables
+        let timerInterval = null;
+        let totalSeconds = 0;
+        let isTimerRunning = false;
+
+        // Elementos DOM
+        const btnConnectDB = document.getElementById('btnConnectDB');
+        const dbStatus = document.getElementById('dbStatus');
+        const mainApp = document.getElementById('mainApp');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const btnStartTimer = document.getElementById('btnStartTimer');
+        const btnPauseTimer = document.getElementById('btnPauseTimer');
+        const btnResetTimer = document.getElementById('btnResetTimer');
+        const currentDayWorkout = document.getElementById('currentDayWorkout');
+
+        const inputExercise = document.getElementById('inputExercise');
+        const inputWeight = document.getElementById('inputWeight');
+        const inputReps = document.getElementById('inputReps');
+        const inputSets = document.getElementById('inputSets');
+        const btnSaveSet = document.getElementById('btnSaveSet');
+        const logTableBody = document.getElementById('logTableBody');
+
+        // Mapeamento dos treinos de 7 dias conforme a ficha fornecida
+        const rotinaSemanal = {
+            0: "Domingo: Recuperação Ativa e Lombar (Prancha, Extensão Lombar)",
+            1: "Segunda-feira: Peito e Tríceps (Supino Reto, Crucifixo, Testa)",
+            2: "Terça-feira: Costas e Lombar (Levantamento Terra, Puxada Alta, Remada Curvada)",
+            3: "Quarta-feira: Bíceps e Antebraço (Rosca Direta, Martelo, Inversa)",
+            4: "Quinta-feira: Pernas e Lombar (Agachamento, Stiff, Extensora)",
+            5: "Sexta-feira: Ombros e Tríceps (Desenvolvimento, Elevação Lateral, Corda)",
+            6: "Sábado: Peito e Bíceps (Supino Inclinado, Crossover, Concentrada)"
+        };
+
+        // Inicializa o SQL.js
+        initSqlJs({ locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}` }).then(sql => {
+            SQL = sql;
+            btnConnectDB.disabled = false;
+        }).catch(err => console.error("Erro ao carregar SQL.js:", err));
+
+        // Define o treino do dia atual baseado no dia da semana real
+        const hoje = new Date().getDay();
+        currentDayWorkout.innerText = rotinaSemanal[hoje];
+
+        // Evento de Conexão com Arquivo Local (File System Access API)
+        btnConnectDB.addEventListener('click', async () => {
+            try {
+                // Abre seletor de arquivos para criar ou abrir um arquivo .db
+                const options = {
+                    suggestedName: 'meu_progresso_treino.db',
+                    types: [{
+                        description: 'SQLite Database',
+                        accept: { 'application/x-sqlite3': ['.db'] }
+                    }]
+                };
+
+                // Mostra o prompt para salvar/escolher o local do arquivo
+                fileHandle = await window.showSaveFilePicker(options);
+
+                // Tenta ler o arquivo se ele já existir e tiver dados
+                const file = await fileHandle.getFile();
+                const arrayBuffer = await file.arrayBuffer();
+
+                if (arrayBuffer.byteLength > 0) {
+                    // Carrega o banco existente
+                    const uInt8Array = new Uint8Array(arrayBuffer);
+                    db = new SQL.Database(uInt8Array);
+                    dbStatus.innerText = "Conectado (Arquivo Carregado)";
+                } else {
+                    // Cria um novo banco
+                    db = new SQL.Database();
+                    dbStatus.innerText = "Conectado (Novo Banco Criado)";
+                    // Cria a tabela de treinos se não existir
+                    db.run(`CREATE TABLE IF NOT EXISTS historico_treino (
+                    id INTEGER PRIMARY KEY AUTOUTION,
+                    data TEXT DEFAULT (date('now','localtime')),
+                    hora TEXT DEFAULT (time('now','localtime')),
+                    exercicio TEXT,
+                    serie INTEGER,
+                    peso REAL,
+                    repeticoes INTEGER
+                );`);
+                    await salvarBancoNoDisco();
+                }
+
+                dbStatus.style.color = "var(--success)";
+                mainApp.classList.remove('hidden');
+                document.getElementById('setupSection').style.background = "#e2fxeb";
+
+                carregarHistoricoHoje();
+
+            } catch (error) {
+                console.error(error);
+                alert("Operação cancelada ou sem permissão de escrita no local escolhido.");
+            }
+        });
+
+        // Função para gravar fisicamente as alterações no arquivo SQLite do usuário
+        async function salvarBancoNoDisco() {
+            if (!db || !fileHandle) return;
+            const data = db.export();
+            const writable = await fileHandle.createWritable();
+            await writable.write(data);
+            await writable.close();
+        }
+
+        // Ação de Salvar Série
+        btnSaveSet.addEventListener('click', async () => {
+            const exercicio = inputExercise.value.trim();
+            const peso = parseFloat(inputWeight.value);
+            const reps = parseInt(inputReps.value);
+            const serie = parseInt(inputSets.value);
+
+            if (!exercicio || isNaN(peso) || isNaN(reps)) {
+                alert("Por favor, preencha todos os campos corretamente.");
+                return;
+            }
+
+            // Insere no banco SQLite
+            db.run("INSERT INTO historico_treino (exercicio, serie, peso, repeticoes) VALUES (?, ?, ?, ?)", [exercicio, serie, peso, reps]);
+
+            // Salva as alterações de volta no arquivo do computador
+            await salvarBancoNoDisco();
+
+            // Limpa/ajusta campos para a próxima série
+            inputSets.value = serie + 1;
+            inputReps.value = "";
+
+            alert("Série salva com sucesso no banco de dados!");
+            carregarHistoricoHoje();
+        });
+
+        // Carrega registros inseridos no dia de hoje na tabela visual
+        function carregarHistoricoHoje() {
+            if (!db) return;
+            logTableBody.innerHTML = "";
+
+            const stmt = db.prepare("SELECT hora, exercicio, serie, peso, repeticoes FROM historico_treino WHERE data = date('now','localtime') ORDER BY id DESC");
+
+            while (stmt.step()) {
+                const row = stmt.getAsObject();
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                <td>${row.hora}</td>
+                <td>${row.exercicio}</td>
+                <td>${row.serie}º</td>
+                <td>${row.peso} kg</td>
+                <td>${row.repeticoes}</td>
+            `;
+                logTableBody.appendChild(tr);
+            }
+            stmt.free();
+        }
+
+        // --- LÓGICA DO CRONÔMETRO ---
+        function updateTimerDisplay() {
+            const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+            const seconds = String(totalSeconds % 60).padStart(2, '0');
+            timerDisplay.innerText = `${minutes}:${seconds}`;
+
+            // Alerta visual caso passe dos 30 minutos recomendados
+            if (totalSeconds >= 1800) {
+                timerDisplay.style.color = "var(--danger)";
+            } else {
+                timerDisplay.style.color = "#38bdf8";
+            }
+        }
+
+        btnStartTimer.addEventListener('click', () => {
+            if (isTimerRunning) return;
+            isTimerRunning = true;
+            timerInterval = setInterval(() => {
+                totalSeconds++;
+                updateTimerDisplay();
+            }, 1000);
+        });
+
+        btnPauseTimer.addEventListener('click', () => {
+            clearInterval(timerInterval);
+            isTimerRunning = false;
+        });
+
+        btnResetTimer.addEventListener('click', () => {
+            clearInterval(timerInterval);
+            isTimerRunning = false;
+            totalSeconds = 0;
+            updateTimerDisplay();
+        });
+    </script>
+
+</body>
+
+</html>
