@@ -1,151 +1,472 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-theme="dark">
-
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerenciador de Treino Activo</title>
-    <!-- Pico.css v2 -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
-    <!-- Custom Style Sheet -->
-    <link rel="stylesheet" href="assets/style.css">
-    <!-- SQL.js Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
-</head>
+    <title>Meu Treino Diário — Evolução</title>
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --secondary: #2563eb;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --warning: #ca8a04;
+            --background: #f8fafc;
+            --surface: #ffffff;
+            --text: #0f172a;
+            --border: #e2e8f0;
+        }
 
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--background);
+            color: var(--text);
+            margin: 0;
+            padding: 15px;
+        }
+
+        .container {
+            max-width: 650px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: var(--primary);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+
+        header h1 { margin: 0; font-size: 1.5rem; }
+        header p { margin: 5px 0 0 0; opacity: 0.9; font-size: 0.9rem; }
+
+        .card {
+            background: var(--surface);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            margin-bottom: 15px;
+            border: 1px solid var(--border);
+        }
+
+        h2 { margin-top: 0; font-size: 1.2rem; display: flex; align-items: center; gap: 8px; }
+
+        /* Grid do Seletor e Cronômetro */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+        }
+
+        @media(min-width: 480px) {
+            .dashboard-grid { grid-template-columns: 1fr 1fr; }
+        }
+
+        select, input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 1rem;
+            background: var(--background);
+            box-sizing: border-box;
+        }
+
+        /* Timers */
+        .timer-container {
+            text-align: center;
+        }
+        .timer-display {
+            font-family: monospace;
+            font-size: 2.2rem;
+            font-weight: bold;
+            color: var(--secondary);
+            margin-bottom: 8px;
+        }
+        .btn-group {
+            display: flex;
+            gap: 5px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 10px 14px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.9; }
+        .btn-primary { background: var(--secondary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
+
+        /* Lista de Exercícios */
+        .exercise-item {
+            border-left: 4px solid var(--secondary);
+            background: var(--background);
+            padding: 12px;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 12px;
+        }
+        .exercise-name { font-weight: bold; margin-bottom: 4px; color: var(--primary); }
+        .exercise-meta { font-size: 0.85rem; color: #64748b; margin-bottom: 10px; }
+
+        /* Inputs de Registro Rápido */
+        .log-inputs {
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+        .log-inputs div { flex: 1; }
+        .log-inputs label { display: block; font-size: 0.75rem; font-weight: bold; margin-bottom: 4px; color: #64748b;}
+        .log-inputs input { padding: 6px; text-align: center; background: white;}
+
+        /* Histórico de Registro */
+        .history-list {
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+        }
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .history-item:last-child { border: none; }
+
+        /* Overlay do Intervalo */
+        #intervalOverlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.9);
+            color: white;
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        #intervalCount { font-size: 5rem; font-family: monospace; font-weight: bold; color: #38bdf8; }
+    </style>
+</head>
 <body>
 
-    <!-- Top Navigation Bar for Title & Theme Toggle -->
-    <nav class="container" style="margin-top: 1rem; margin-bottom: 1.5rem;">
-        <ul>
-            <li><strong>🏋️‍♂️ Gerenciador de Treino</strong></li>
-        </ul>
-        <ul>
-            <li>
-                <button id="btnToggleTheme" class="outline contrast">☀️ Modo Claro</button>
-            </li>
-        </ul>
-    </nav>
+<div class="container">
+    <header>
+        <h1 id="pageTitle">🏋️‍♂️ Meu Treino Diário</h1>
+        <p id="currentDateDisplay">Carregando data...</p>
+    </header>
 
-    <!-- Main Container -->
-    <main class="container">
-
-        <article id="setupSection" style="margin-bottom: 2rem;">
-            <header
-                style="margin-bottom: 1rem; font-weight: bold; font-size: 1.1rem; padding: 0.75rem var(--pico-spacing);">
-                ⚡ Configuração do Banco de Dados SQLite
-            </header>
-            <p style="font-size: 14px; color: var(--pico-muted-color); margin-top: -10px;">
-                Abra um arquivo existente para carregar seu progresso ou crie um novo arquivo.
-            </p>
-            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <button id="btnOpenDB" disabled style="margin: 0;">Abrir Arquivo SQLite Existente (.db)</button>
-                <button id="btnCreateDB" disabled class="secondary" style="margin: 0;">Criar Novo Arquivo SQLite
-                    (.db)</button>
-                <span id="dbStatus"
-                    style="font-size: 14px; font-weight: bold; color: var(--pico-del-color); margin-left: 10px;">Desconectado</span>
-            </div>
-        </article>
-
-        <div id="mainApp" class="hidden">
-            <article class="timer-card" style="margin-bottom: 2rem;">
-                <header
-                    style="margin-bottom: 1rem; font-weight: bold; font-size: 1.1rem; padding: 0.75rem var(--pico-spacing);">
-                    ⏱️ Cronômetro da Série
-                </header>
-                <div class="grid" style="align-items: center;">
-                    <button id="btnOpenTimer" style="font-size: 16px; margin: 0;">⏱️ Abrir Cronômetro (Série
-                        Ativa)</button>
-                    <div style="text-align: center; font-size: 15px;">
-                        Tempo registrado: <strong id="mainTimerValue"
-                            style="color: var(--pico-ins-color); font-size: 20px;">00:00</strong>
-                    </div>
-                </div>
-            </article>
-
-            <article style="margin-bottom: 2rem;">
-                <header
-                    style="margin-bottom: 1rem; font-weight: bold; font-size: 1.1rem; padding: 0.75rem var(--pico-spacing);">
-                    💪 Registrar Série
-                </header>
-                <p style="margin-bottom: 1.5rem;"><strong>Treino de Hoje sugerido:</strong> <span id="currentDayWorkout"
-                        style="color: var(--pico-primary); font-weight: bold;">Verificando dia...</span></p>
-
-                <div>
-                    <label style="margin-bottom: 8px; font-weight: bold;">Selecione o Exercício</label>
-                    <div id="exerciseOptionsContainer"
-                        style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
-                        <!-- Será preenchido via JS -->
-                    </div>
-                </div>
-
-                <div id="customExerciseContainer" class="hidden" style="margin-top: 10px; margin-bottom: 10px;">
-                    <label for="inputExerciseCustom" style="font-weight: bold;">Nome do Exercício Personalizado</label>
-                    <input type="text" id="inputExerciseCustom" placeholder="Ex: Rosca Concentrada, Crossover">
-                </div>
-
-                <div class="grid" style="margin-top: 1.5rem;">
-                    <div>
-                        <label for="inputWeight" style="font-weight: bold;">Carga / Peso (kg)</label>
-                        <input type="number" id="inputWeight" placeholder="0" min="0">
-                    </div>
-                    <div>
-                        <label for="inputReps" style="font-weight: bold;">Repetições</label>
-                        <input type="number" id="inputReps" placeholder="0" min="0">
-                    </div>
-                    <div>
-                        <label for="inputSets" style="font-weight: bold;">Série Nº</label>
-                        <input type="number" id="inputSets" placeholder="1" min="1" value="1">
-                    </div>
-                </div>
-
-                <div class="grid" style="margin-top: 1.5rem;">
-                    <button id="btnSaveSet" class="btn-success" style="margin: 0;">Salvar Série no SQLite</button>
-                    <button id="btnResetFields" class="secondary" style="margin: 0;">Limpar Campos</button>
-                </div>
-            </article>
-
-            <article>
-                <header
-                    style="margin-bottom: 1rem; font-weight: bold; font-size: 1.1rem; padding: 0.75rem var(--pico-spacing);">
-                    📜 Histórico de Hoje
-                </header>
-                <div style="overflow-x: auto;">
-                    <table class="striped" id="logTable">
-                        <thead>
-                            <tr>
-                                <th>Hora</th>
-                                <th>Exercício</th>
-                                <th>Série</th>
-                                <th>Carga</th>
-                                <th>Reps</th>
-                                <th>Tempo</th>
-                            </tr>
-                        </thead>
-                        <tbody id="logTableBody">
-                        </tbody>
-                    </table>
-                </div>
-            </article>
+    <div class="dashboard-grid">
+        <div class="card">
+            <h2>📅 Dia do Treino</h2>
+            <p style="font-size: 0.85rem; margin-top:-5px; color:#64748b;">Alterado automaticamente para o dia atual.</p>
+            <select id="daySelector">
+                <option value="1">Segunda-feira: Peito e Tríceps</option>
+                <option value="2">Terça-feira: Costas e Lombar</option>
+                <option value="3">Quarta-feira: Bíceps e Antebraço</option>
+                <option value="4">Quinta-feira: Pernas e Lombar</option>
+                <option value="5">Sexta-feira: Ombros e Tríceps</option>
+                <option value="6">Sábado: Peito e Bíceps (Duplo)</option>
+                <option value="0">Domingo: Recuperação e Lombar</option>
+            </select>
         </div>
-    </main>
 
-    <!-- Tela Completa do Cronômetro (Overlay) -->
-    <div id="timerOverlay" class="timer-overlay hidden">
-        <div class="timer-overlay-title">Cronômetro da Série</div>
-        <div class="timer-overlay-display" id="overlayTimerDisplay">00:00</div>
-        <div class="timer-overlay-buttons">
-            <button id="btnOverlayStart" class="btn-success">Iniciar / Continuar</button>
-            <button id="btnOverlayPause" style="background-color: #eab308; color: white;">Pausar</button>
-            <button id="btnOverlayFinish" class="btn-danger">Terminar</button>
+        <div class="card timer-container">
+            <h2>⏱️ Tempo Total de Treino</h2>
+            <div class="timer-display" id="workoutTimer">00:00</div>
+            <div class="btn-group">
+                <button class="btn-success" id="btnStart">Iniciar</button>
+                <button class="btn-warning" id="btnPause">Pausar</button>
+                <button class="btn-danger" id="btnReset">Resetar</button>
+            </div>
         </div>
     </div>
 
-    <!-- Application Modules loaded sequentially to support direct file:// protocol usage -->
-    <script src="assets/routine.js"></script>
-    <script src="assets/timer.js"></script>
-    <script src="assets/db.js"></script>
-    <script src="assets/app.js"></script>
-</body>
+    <div class="card">
+        <h2>💪 Exercícios de Hoje (<span id="muscleGroupTitle">...</span>)</h2>
+        <div id="exercisesContainer">
+            </div>
+    </div>
 
+    <div class="card">
+        <h2>📜 Histórico de Séries (Hoje)</h2>
+        <div class="history-list" id="historyLog">
+            <p style="color: #64748b; font-style: italic;">Nenhuma série registrada hoje ainda.</p>
+        </div>
+        <button class="btn-danger" id="btnClearHistory" style="width: 100%; margin-top: 15px; background-color: #94a3b8;">Limpar Histórico Local</button>
+    </div>
+</div>
+
+<div id="intervalOverlay">
+    <h2 style="color: white; font-size: 1.5rem;">⏱️ DESCANSO ATIVO</h2>
+    <p id="intervalExerciseName" style="color: #94a3b8; margin: 0 0 15px 0;"></p>
+    <div id="intervalCount">00</div>
+    <button class="btn-danger" id="btnSkipInterval" style="margin-top: 20px;">Pular Intervalo</button>
+</div>
+
+<script>
+    // Banco de Dados de Exercícios (Ficha de 5 Exercícios por dia)
+    const rotinaTreinos = {
+        1: { name: "Peito e Tríceps", exercises: [
+            { id: "s1", name: "Supino Reto (Barra ou Halteres)", sets: 4, reps: "8-12", type: "composto" },
+            { id: "s2", name: "Crucifixo Inclinado (Halteres)", sets: 3, reps: "8-12", type: "composto" },
+            { id: "s3", name: "Tríceps Testa ou Pulley", sets: 4, reps: "8-12", type: "isolado" },
+            { id: "s4", name: "Supino Reto com Halteres (Volume)", sets: 3, reps: "10-12", type: "composto" },
+            { id: "s5", name: "Tríceps Coice (Polia ou Halteres)", sets: 3, reps: "10-12", type: "isolado" }
+        ]},
+        2: { name: "Costas e Lombar", exercises: [
+            { id: "t1", name: "Levantamento Terra (Deadlift)", sets: 4, reps: "8-12", type: "composto" },
+            { id: "t2", name: "Puxada Alta (Pulley) ou Barra Fixa", sets: 3, reps: "8-12", type: "composto" },
+            { id: "t3", name: "Remada Curvada (Barra ou Halteres)", sets: 3, reps: "8-12", type: "composto" },
+            { id: "t4", name: "Remada Baixa (Triângulo)", sets: 3, reps: "10-12", type: "composto" },
+            { id: "t5", name: "Puxada Articulada (Foco em Dorsal)", sets: 3, reps: "10-12", type: "composto" }
+        ]},
+        3: { name: "Bíceps e Antebraço", exercises: [
+            { id: "q1", name: "Rosca Direta (Barra W ou Halteres)", sets: 4, reps: "8-12", type: "isolado" },
+            { id: "q2", name: "Rosca Martelo", sets: 3, reps: "8-12", type: "isolado" },
+            { id: "q3", name: "Rosca Inversa ou Flexão de Punho", sets: 3, reps: "8-12", type: "isolado" },
+            { id: "q4", name: "Rosca Scott (Máquina ou Barra)", sets: 3, reps: "10-12", type: "isolated" },
+            { id: "q5", name: "Rosca Concentrada (Halter)", sets: 3, reps: "10-12", type: "isolado" }
+        ]},
+        4: { name: "Pernas e Lombar", exercises: [
+            { id: "qi1", name: "Agachamento Livre (Barra)", sets: 4, reps: "8-12", type: "composto" },
+            { id: "qi2", name: "Stiff (Halteres ou Barra)", sets: 3, reps: "8-12", type: "composto" },
+            { id: "qi3", name: "Cadeira Extensora", sets: 3, reps: "8-12", type: "isolado" },
+            { id: "qi4", name: "Leg Press 45º", sets: 3, reps: "10-12", type: "composto" },
+            { id: "qi5", name: "Mesa Flexora (Posteriores)", sets: 3, reps: "10-12", type: "isolado" }
+        ]},
+        5: { name: "Ombros e Tríceps", exercises: [
+            { id: "sx1", name: "Desenvolvimento (Halteres ou Barra)", sets: 3, reps: "8-12", type: "composto" },
+            { id: "sx2", name: "Elevação Lateral", sets: 4, reps: "8-12", type: "isolado" },
+            { id: "sx3", name: "Tríceps Corda", sets: 3, reps: "8-12", type: "isolado" },
+            { id: "sx4", name: "Elevação Frontal (Halteres)", sets: 3, reps: "10-12", type: "isolado" },
+            { id: "sx5", name: "Crucifixo Inverso (Ombro Post.)", sets: 3, reps: "10-12", type: "isolado" }
+        ]},
+        6: { name: "Peito e Bíceps (Duplo)", exercises: [
+            { id: "sa1", name: "Supino Inclinado (Halteres)", sets: 4, reps: "8-12", type: "composto" },
+            { id: "sa2", name: "Crossover (Polia) ou Peck Deck", sets: 3, reps: "8-12", type: "isolado" },
+            { id: "sa3", name: "Rosca Concentrada ou Scott", sets: 4, reps: "8-12", type: "isolado" },
+            { id: "sa4", name: "Flexão de Braço (Até a Falha)", sets: 3, reps: "Máximo", type: "composto" },
+            { id: "sa5", name: "Rosca Alternada com Halteres", sets: 3, reps: "10-12", type: "isolado" }
+        ]},
+        0: { name: "Recuperação e Lombar", exercises: [
+            { id: "dom1", name: "Prancha Abdominal Prone", sets: 3, reps: "45-60s", type: "isolado" },
+            { id: "dom2", name: "Extensão de Lombar (Banco/Chão)", sets: 3, reps: "15 rep", type: "isolado" },
+            { id: "dom3", name: "Caminhada na Esteira ou Mobilidade", sets: 1, reps: "15 min", type: "isolado" },
+            { id: "dom4", name: "Abdominal Infra (Elevação Pernas)", sets: 3, reps: "15-20", type: "isolado" },
+            { id: "dom5", name: "Alongamento Cadeia Posterior", sets: 1, reps: "10 min", type: "isolado" }
+        ]}
+    };
+
+    // Estado do App
+    let mainTimer = null;
+    let workoutSeconds = 0;
+    let isRunning = false;
+    
+    let intervalTimer = null;
+    let intervalSecondsLeft = 0;
+
+    // Elementos DOM
+    const daySelector = document.getElementById('daySelector');
+    const muscleGroupTitle = document.getElementById('muscleGroupTitle');
+    const exercisesContainer = document.getElementById('exercisesContainer');
+    const workoutTimerDisplay = document.getElementById('workoutTimer');
+    const historyLog = document.getElementById('historyLog');
+    const currentDateDisplay = document.getElementById('currentDateDisplay');
+    
+    const intervalOverlay = document.getElementById('intervalOverlay');
+    const intervalCount = document.getElementById('intervalCount');
+    const intervalExerciseName = document.getElementById('intervalExerciseName');
+
+    // Inicialização da Data e do Dia da Semana Automático
+    const dataAtual = new Date();
+    const diaSemanaAtual = dataAtual.getDay(); // 0 = Domingo, 1 = Segunda, etc.
+    
+    currentDateDisplay.innerText = dataAtual.toLocaleDateString('pt-BR', { 
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+    });
+
+    // Seta o seletor para o dia atual de forma automática
+    daySelector.value = diaSemanaAtual;
+
+    // Monitora mudança manual de dia da semana no HTML
+    daySelector.addEventListener('change', renderizarTreinoDoDia);
+
+    function renderizarTreinoDoDia() {
+        const diaSelecionado = daySelector.value;
+        const treino = rotinaTreinos[diaSelecionado];
+        
+        muscleGroupTitle.innerText = treino.name;
+        exercisesContainer.innerHTML = "";
+
+        treino.exercises.forEach((ex, index) => {
+            const div = document.createElement('div');
+            div.className = "exercise-item";
+            div.innerHTML = `
+                <div class="exercise-name">${index + 1}. ${ex.name}</div>
+                <div class="exercise-meta">Meta: ${ex.sets} séries x ${ex.reps} repetições (${ex.type === 'composto' ? 'Intervalo: 75s' : 'Intervalo: 50s'})</div>
+                <div class="log-inputs">
+                    <div>
+                        <label>Série</label>
+                        <input type="number" id="set-${ex.id}" value="1" min="1">
+                    </div>
+                    <div>
+                        <label>Peso (kg)</label>
+                        <input type="number" id="weight-${ex.id}" placeholder="0" min="0">
+                    </div>
+                    <div>
+                        <label>Reps Feitas</label>
+                        <input type="number" id="reps-${ex.id}" placeholder="10" min="0">
+                    </div>
+                    <button class="btn-primary" onclick="salvarSerie('${ex.id}', '${ex.name}', '${ex.type}')">✓ Salvar</button>
+                </div>
+            `;
+            exercisesContainer.appendChild(div);
+        });
+    }
+
+    // Função para Salvar a série executada
+    window.salvarSerie = function(id, name, type) {
+        const serieInput = document.getElementById(`set-${id}`);
+        const pesoInput = document.getElementById(`weight-${id}`);
+        const repsInput = document.getElementById(`reps-${id}`);
+
+        const serie = serieInput.value;
+        const peso = pesoInput.value || "0";
+        const reps = repsInput.value || "0";
+
+        if(peso === "0" && reps === "0") {
+            alert("Por favor, informe o peso ou as repetições realizadas.");
+            return;
+        }
+
+        const logEntry = {
+            data: new Date().toLocaleDateString('pt-BR'),
+            hora: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}),
+            exercicio: name,
+            serie: serie,
+            peso: peso,
+            reps: reps
+        };
+
+        // Salva no LocalStorage
+        let historico = JSON.parse(localStorage.getItem('historico_treinos_local')) || [];
+        historico.unshift(logEntry); // Insere no topo
+        localStorage.setItem('historico_treinos_local', JSON.stringify(historico));
+
+        // Incrementa o número da série automaticamente para agilizar o próximo input
+        serieInput.value = parseInt(serie) + 1;
+        repsInput.value = "";
+
+        carregarHistóricoVisual();
+        
+        // Dispara o Intervalo Inteligente baseado no tipo de exercício
+        const tempoDescanso = (type === 'composto') ? 75 : 50;
+        dispararIntervalo(tempoDescanso, name);
+    };
+
+    // Lógica do Timer de Intervalo Flutuante
+    function dispararIntervalo(segundos, nomeEx) {
+        clearInterval(intervalTimer);
+        intervalSecondsLeft = segundos;
+        intervalExerciseName.innerText = `Próxima série de: ${nomeEx}`;
+        intervalOverlay.style.display = "flex";
+        
+        intervalCount.innerText = intervalSecondsLeft;
+
+        intervalTimer = setInterval(() => {
+            intervalSecondsLeft--;
+            intervalCount.innerText = intervalSecondsLeft;
+
+            if(intervalSecondsLeft <= 0) {
+                fecharIntervalo();
+                // Alerta sonoro básico do navegador (beep) se suportado
+                if(window.tunes) { try{ new AudioContext().createOscillator().start(); }catch(e){} }
+            }
+        }, 1000);
+    }
+
+    function fecharIntervalo() {
+        clearInterval(intervalTimer);
+        intervalOverlay.style.display = "none";
+    }
+
+    document.getElementById('btnSkipInterval').addEventListener('click', fecharIntervalo);
+
+    // Carrega o histórico salvo no LocalStorage na tela
+    function carregarHistóricoVisual() {
+        const historico = JSON.parse(localStorage.getItem('historico_treinos_local')) || [];
+        historyLog.innerHTML = "";
+        
+        const hojeStr = new Date().toLocaleDateString('pt-BR');
+        const filtradoHoje = historico.filter(item => item.data === hojeStr);
+
+        if(filtradoHoje.length === 0) {
+            historyLog.innerHTML = `<p style="color: #64748b; font-style: italic;">Nenhuma série registrada hoje ainda.</p>`;
+            return;
+        }
+
+        filtradoHoje.forEach(item => {
+            const div = document.createElement('div');
+            div.className = "history-item";
+            div.innerHTML = `
+                <span><b>${item.hora}</b> - ${item.exercicio} (Série ${item.serie}º)</span>
+                <span><b>${item.peso} kg</b> x ${item.reps} reps</span>
+            `;
+            historyLog.appendChild(div);
+        });
+    }
+
+    // --- CRONÔMETRO DE TREINO PRINCIPAL ---
+    document.getElementById('btnStart').addEventListener('click', () => {
+        if (isRunning) return;
+        isRunning = true;
+        mainTimer = setInterval(() => {
+            workoutSeconds++;
+            const mins = String(Math.floor(workoutSeconds / 60)).padStart(2, '0');
+            const secs = String(workoutSeconds % 60).padStart(2, '0');
+            workoutTimerDisplay.innerText = `${mins}:${secs}`;
+            
+            // Muda de cor se bater a meta estipulada de 30 minutos diários
+            if(workoutSeconds >= 1800) {
+                workoutTimerDisplay.style.color = "var(--danger)";
+            }
+        }, 1000);
+    });
+
+    document.getElementById('btnPause').addEventListener('click', () => {
+        clearInterval(mainTimer);
+        isRunning = false;
+    });
+
+    document.getElementById('btnReset').addEventListener('click', () => {
+        clearInterval(mainTimer);
+        isRunning = false;
+        workoutSeconds = 0;
+        workoutTimerDisplay.innerText = "00:00";
+        workoutTimerDisplay.style.color = "var(--secondary)";
+    });
+
+    document.getElementById('btnClearHistory').addEventListener('click', () => {
+        if(confirm("Tem certeza que deseja apagar os registros salvos neste navegador?")) {
+            localStorage.removeItem('historico_treinos_local');
+            carregarHistóricoVisual();
+        }
+    });
+
+    // Inicialização da Página
+    renderizarTreinoDoDia();
+    carregarHistóricoVisual();
+</script>
+
+</body>
 </html>
