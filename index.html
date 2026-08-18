@@ -76,21 +76,53 @@
             box-sizing: border-box;
         }
 
-        .timer-container {
-            text-align: center;
+        body {
+            padding-bottom: 170px;
         }
+
+        .floating-timer {
+            position: fixed;
+            right: 12px;
+            bottom: 12px;
+            width: min(340px, calc(100vw - 24px));
+            padding: 14px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(4px);
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.16);
+            z-index: 900;
+        }
+
+        .floating-timer h2 {
+            margin-bottom: 8px;
+            font-size: 1rem;
+            justify-content: center;
+        }
+
+        @media(min-width: 768px) {
+            body { padding-bottom: 24px; }
+            .floating-timer { width: 320px; }
+        }
+
         .timer-display {
             font-family: monospace;
-            font-size: 2.2rem;
+            font-size: 2rem;
             font-weight: bold;
             color: var(--secondary);
             margin-bottom: 8px;
+            text-align: center;
         }
         .btn-group {
             display: flex;
             gap: 5px;
             justify-content: center;
             flex-wrap: wrap;
+        }
+
+        .floating-timer .btn-group button {
+            flex: 1 1 94px;
+            padding: 9px 10px;
         }
 
         button {
@@ -284,15 +316,6 @@
             </select>
         </div>
 
-        <div class="card timer-container">
-            <h2>⏱️ Tempo Total de Treino</h2>
-            <div class="timer-display" id="workoutTimer">00:00</div>
-            <div class="btn-group">
-                <button class="btn-success" id="btnStart">Iniciar</button>
-                <button class="btn-warning" id="btnPause">Pausar</button>
-                <button class="btn-danger" id="btnReset">Resetar</button>
-            </div>
-        </div>
     </div>
 
     <div class="card exercise-stepper-card">
@@ -309,6 +332,16 @@
             <button class="btn-primary" id="btnOpenHistoryScreen">Ver histórico completo e progressão</button>
             <button class="btn-danger btn-muted" id="btnClearHistory">Limpar Histórico Local</button>
         </div>
+    </div>
+</div>
+
+<div class="floating-timer" id="floatingTimer">
+    <h2>⏱️ Tempo Total de Treino</h2>
+    <div class="timer-display" id="workoutTimer">00:00</div>
+    <div class="btn-group">
+        <button class="btn-success" id="btnStart">Iniciar</button>
+        <button class="btn-warning" id="btnPause">Pausar</button>
+        <button class="btn-danger" id="btnReset">Resetar</button>
     </div>
 </div>
 
@@ -432,6 +465,7 @@
     const currentDateDisplay = document.getElementById('currentDateDisplay');
     const mainScreen = document.getElementById('mainScreen');
     const historyScreen = document.getElementById('historyScreen');
+    const floatingTimer = document.getElementById('floatingTimer');
     const progressionContainer = document.getElementById('progressionContainer');
     const fullHistoryList = document.getElementById('fullHistoryList');
 
@@ -586,6 +620,7 @@
 
                 <div class="save-row">
                     <button class="btn-success save-current" data-exercise-id="${ex.id}" data-exercise-name="${ex.name}" data-exercise-type="${ex.type}">✓ Salvar Série</button>
+                    <button class="btn-primary view-current-history" data-exercise-name="${ex.name}">📈 Ver histórico desta atividade</button>
                 </div>
 
                 <div class="stepper-controls">
@@ -704,6 +739,11 @@
 
         if (btn.classList.contains('save-current')) {
             salvarSerie(btn.dataset.exerciseId, btn.dataset.exerciseName, btn.dataset.exerciseType);
+            return;
+        }
+
+        if (btn.classList.contains('view-current-history')) {
+            abrirTelaHistoricoPorExercicio(btn.dataset.exerciseName);
         }
     });
 
@@ -756,10 +796,10 @@
         });
     }
 
-    function preencherFiltroExercicios() {
+    function preencherFiltroExercicios(exercicioSelecionado = '') {
         const historico = getHistorico();
         const exercicios = [...new Set(historico.map(item => item.exercicio).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-        const atual = filterExercise.value;
+        const alvo = exercicioSelecionado || filterExercise.value;
 
         filterExercise.innerHTML = '<option value="">Todos</option>';
         exercicios.forEach(ex => {
@@ -769,7 +809,15 @@
             filterExercise.appendChild(option);
         });
 
-        filterExercise.value = exercicios.includes(atual) ? atual : '';
+        if (exercicioSelecionado && !exercicios.includes(exercicioSelecionado)) {
+            const customOption = document.createElement('option');
+            customOption.value = exercicioSelecionado;
+            customOption.innerText = exercicioSelecionado;
+            filterExercise.appendChild(customOption);
+        }
+
+        const existe = exercicios.includes(alvo) || alvo === exercicioSelecionado;
+        filterExercise.value = existe ? alvo : '';
     }
 
     function aplicarFiltrosHistorico() {
@@ -848,13 +896,30 @@
     function abrirTelaHistorico() {
         mainScreen.classList.add('hidden');
         historyScreen.classList.remove('hidden');
+        floatingTimer.classList.add('hidden');
         preencherFiltroExercicios();
+        aplicarFiltrosHistorico();
+    }
+
+    function abrirTelaHistoricoPorExercicio(exercicio) {
+        if (!exercicio) {
+            abrirTelaHistorico();
+            return;
+        }
+        mainScreen.classList.add('hidden');
+        historyScreen.classList.remove('hidden');
+        floatingTimer.classList.add('hidden');
+        filterStartDate.value = '';
+        filterEndDate.value = '';
+        preencherFiltroExercicios(exercicio);
+        filterExercise.value = exercicio;
         aplicarFiltrosHistorico();
     }
 
     function voltarTelaTreino() {
         historyScreen.classList.add('hidden');
         mainScreen.classList.remove('hidden');
+        floatingTimer.classList.remove('hidden');
     }
 
     document.getElementById('btnOpenHistoryScreen').addEventListener('click', abrirTelaHistorico);
